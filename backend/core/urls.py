@@ -16,6 +16,12 @@ from .views import (
 )
 
 urlpatterns = [
+
+    # Perfil
+    path('perfil/', PerfilDetailView.as_view(), name='perfil-estudiante'),
+    path('perfil/crear/', CrearPerfilView.as_view(), name='crear-perfil'),
+    path("perfil/eliminar/", EliminarMiCuenta.as_view(), name="perfil-eliminar"),
+
     # Publicaciones
     path('publicaciones/', PublicacionListCreateView.as_view(), name='publicaciones-list-create'),
     path('publicaciones/mias/', MisPublicacionesView.as_view(), name='mis-publicaciones'),
@@ -38,11 +44,6 @@ urlpatterns = [
     path('notificaciones/', NotificacionListView.as_view(), name='notificacion-list'),
     path('notificaciones/<int:pk>/marcar-leida/', MarcarNotificacionLeidaView.as_view(), name='notificacion-marcar-leida'),
     path('notificaciones/marcar-todas-leidas/', MarcarTodasNotificacionesLeidasView.as_view(), name='notificaciones-marcar-todas-leidas'),
-
-    # Perfil
-    path('perfil/', PerfilDetailView.as_view(), name='perfil-estudiante'),
-    path('perfil/crear/', CrearPerfilView.as_view(), name='crear-perfil'),
-    path("perfil/eliminar/", EliminarMiCuenta.as_view(), name="perfil-eliminar"),
 
     # Reportes
     path('reportes/', CrearReporteView.as_view(), name='crear-reporte'),

@@ -3,12 +3,35 @@ from django.conf import settings
 import uuid
 import secrets
 
-# ----------------------- Publicaciones y Calificaciones
+# ----------------------- PERFIL ----------------
+class Perfil(models.Model):
+    id_perfil = models.AutoField(primary_key=True)
+    estudiante = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+    alias = models.CharField(max_length=15, blank=True, null=True, help_text="Nombre público opcional")
+    nombre = models.CharField(max_length=100)  # obligatorio
+    apellido = models.CharField(max_length=100)  # obligatorio
+    carrera = models.CharField(max_length=100)  # obligatorio, lista en frontend
+    area = models.CharField(max_length=100)     # obligatorio, lista en frontend
+    biografia = models.TextField(blank=True, null=True)
+    foto = models.URLField(blank=True, null=True)
+    #Lista JSON
+    habilidades_ofrecidas = models.JSONField(default=list, blank=True) 
+
+    def __str__(self):
+        return self.alias or f"{self.nombre} {self.apellido or ''}"
+
+
+# ----------------------- PUBLICACION ----------------
+
 class Publicacion(models.Model):
     id_publicacion = models.AutoField(primary_key=True)
     titulo = models.CharField(max_length=200)
-    descripcion = models.TextField()
-    habilidad = models.IntegerField()
+    descripcion = models.TextField(blank=True, null=True)
+
+    habilidades_ofrecidas = models.JSONField(default=list, blank=True)  
+    habilidades_buscadas = models.JSONField(default=list, blank=True)   
+
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     estado = models.BooleanField(default=True)
     estudiante = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -16,6 +39,7 @@ class Publicacion(models.Model):
     def __str__(self):
         return self.titulo
 
+# ----------------------- CHAT ----------------
 
 class Chat(models.Model):
     id_chat = models.AutoField(primary_key=True)
@@ -46,6 +70,7 @@ class Mensaje(models.Model):
     estudiante = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='mensajes')
     leido = models.BooleanField(default=False)
 
+# ----------------------- CALIFICACION ----------------
 
 class CalificacionChat(models.Model):
     id_calificacion = models.AutoField(primary_key=True)
@@ -58,13 +83,14 @@ class CalificacionChat(models.Model):
     class Meta:
         unique_together = ('chat', 'evaluador')
 
+# ----------------------- NOTIFICACIONES -----------------
 
 class Notificacion(models.Model):
     TIPO_CHOICES = (
         ('nuevo_chat', 'Nuevo chat'),
         ('nuevo_mensaje', 'Nuevo mensaje'),
         ('intercambio_completado', 'Intercambio completado'),
-        ('calificacion_recibida', 'Calificación recibida'),
+        ('calificacion_chat', 'Calificación de chat'), 
     )
     id_notificacion = models.AutoField(primary_key=True)
     mensaje = models.TextField()
@@ -78,24 +104,7 @@ class Notificacion(models.Model):
     calificacion = models.ForeignKey('core.CalificacionChat', on_delete=models.CASCADE, null=True, blank=True, related_name='notificaciones')
 
 
-# ----------------------- Perfiles y Verificación
-class Perfil(models.Model):
-    id_perfil = models.AutoField(primary_key=True)
-    estudiante = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-
-    alias = models.CharField(max_length=15, blank=True, null=True, help_text="Nombre público opcional")
-    nombre = models.CharField(max_length=100, default="Sin nombre")
-    apellido = models.CharField(max_length=100, blank=True, null=True)
-    carrera = models.CharField(max_length=100, blank=True, null=True)  # lista en frontend
-    biografia = models.TextField(blank=True, null=True)
-    foto = models.URLField(blank=True, null=True)
-    habilidades_ofrecidas = models.TextField(blank=True, null=True)
-    habilidades_buscadas = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return self.alias or f"{self.nombre} {self.apellido or ''}".strip()
-
-# ----------------------- Reportes
+# ----------------------- REPORTES -----------------
 class Reporte(models.Model):
     id_reporte = models.AutoField(primary_key=True)
     motivo = models.TextField()

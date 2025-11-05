@@ -4,12 +4,56 @@ from .models import (
     Mensaje, Reporte, Perfil, Notificacion
 )
 
+
+# ----------------------- PERFIL SERIALIZERS
+class PerfilCompletoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Perfil
+        fields = [
+            'id_perfil',
+            'alias',
+            'nombre',
+            'apellido',
+            'carrera',
+            'area',
+            'biografia',
+            'foto',
+            'habilidades_ofrecidas',  # ahora lista
+        ]
+        read_only_fields = ['id_perfil']
+
+class ConfirmarEliminarCuentaSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+
+#----------------------- PUBLICACIONES SERIALIZERS
+
 class PublicacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Publicacion
         fields = '__all__'
-        read_only_fields = ('estudiante', 'fecha_creacion')
+        read_only_fields = ('estudiante', 'fecha_creacion', 'habilidades_ofrecidas')
 
+    def create(self, validated_data):
+        user = self.context['request'].user
+        perfil = getattr(user, "perfil", None)
+
+        if not perfil:
+            raise serializers.ValidationError(
+                {"perfil": "Debes completar tu perfil antes de publicar."}
+            )
+        
+        if not perfil.habilidades_ofrecidas or len(perfil.habilidades_ofrecidas) == 0:
+            raise serializers.ValidationError(
+                {"habilidades_ofrecidas": "Debes indicar al menos una habilidad ofrecida en tu perfil."}
+            )
+
+        return Publicacion.objects.create(
+            estudiante=user,
+            titulo=validated_data['titulo'],
+            descripcion=validated_data.get('descripcion', ''),
+            habilidades_ofrecidas=perfil.habilidades_ofrecidas,
+            habilidades_buscadas=validated_data['habilidades_buscadas'],
+        )
 
 class ChatParticipanteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -51,22 +95,6 @@ class NotificacionSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id_notificacion', 'fecha']
 
-
-class PerfilCompletoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Perfil
-        fields = [
-            'id_perfil',
-            'alias',
-            'nombre',
-            'apellido',
-            'carrera',
-            'biografia',
-            'foto',
-            'habilidades_ofrecidas',
-            'habilidades_buscadas',
-        ]
-        read_only_fields = ['id_perfil']
 
 class ReporteSerializer(serializers.ModelSerializer):
     class Meta:

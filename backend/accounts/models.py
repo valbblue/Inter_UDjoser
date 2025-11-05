@@ -32,18 +32,21 @@ class User(AbstractUser): #Usuario Estudiante o Admin Interu
     is_estudiante = models.BooleanField(default=True)
     is_admin_interu = models.BooleanField(default=False)
 
-    username = None  # 👈 eliminamos el campo username heredado
+    username = None
+    is_active = models.BooleanField(default=True)  # SIN ACTIVACIÓN POR EMAIL
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
-    objects = CustomUserManager()  # 👈 usamos nuestro manager
+    objects = CustomUserManager()  
 
+
+    """ SE ACTIVA EN PRODUCCIÓN !!!!
     def clean(self):
         super().clean()
         if self.is_estudiante and not self.is_superuser:
             if not self.email.endswith("@inacapmail.cl"):
-                raise ValidationError("Debe usar un correo institucional @inacapmail.cl")
+                raise ValidationError("Debe usar un correo institucional @inacapmail.cl") """
 
     def __str__(self):
         return self.email

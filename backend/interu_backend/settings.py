@@ -31,7 +31,7 @@ SIMPLE_JWT = {
 AUTH_USER_MODEL = 'accounts.User'
 
 ###### DJOSER Settings
-DJOSER = {
+"""DJOSER = {
     "USER_ID_FIELD": "id",
     "LOGIN_FIELD": "email",
     "SEND_ACTIVATION_EMAIL": True,
@@ -45,7 +45,29 @@ DJOSER = {
         "user": "accounts.serializers.CustomUserSerializer",
         
     },
+}"""
+
+DJOSER = {
+    "USER_ID_FIELD": "id",
+    "LOGIN_FIELD": "email",
+
+    # 🚫 Desactivar activación por correo
+    "SEND_ACTIVATION_EMAIL": False,
+    "SEND_CONFIRMATION_EMAIL": False,
+
+    # Puedes dejar estos en True si quieres probar reset de contraseña
+    "PASSWORD_CHANGED_EMAIL_CONFIRMATION": False,
+    "PASSWORD_RESET_CONFIRMATION": False,
+
+    "ACTIVATION_URL": "activate/{uid}/{token}",  # no se usará en pruebas
+    "PASSWORD_RESET_CONFIRM_URL": "reset-password-confirm/{uid}/{token}",
+
+    "SERIALIZERS": {
+        "user_create": "accounts.serializers.CustomUserCreateSerializer",
+        "user": "accounts.serializers.CustomUserSerializer",
+    },
 }
+
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 #######################################################################

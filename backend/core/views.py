@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
-from rest_framework.exceptions import AuthenticationFailed, ValidationError, NotFound
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
@@ -16,23 +16,24 @@ from .serializers import (
     NotificacionSerializer, ReporteSerializer, CalificacionChatSerializer
 )
 
+# ----------- PUBLICACIONES VIEWS  -----------
 
+class MisPublicacionesView(generics.ListAPIView):
+    serializer_class = PublicacionSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-# ----------- PUBLICACIONES -----------
+    def get_queryset(self):
+        return Publicacion.objects.filter(estudiante=self.request.user)
+
 class PublicacionListCreateView(generics.ListCreateAPIView):
     queryset = Publicacion.objects.all()
     serializer_class = PublicacionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def perform_create(self, serializer):
-        serializer.save(estudiante=self.request.user)
-
-
 class PublicacionDetailView(generics.RetrieveAPIView):
-    queryset = Publicacion.objects.all()
+    queryset = Publicacion.objects.filter(estado=True)
     serializer_class = PublicacionSerializer
     permission_classes = [permissions.AllowAny]
-
 
 class PublicacionUpdateView(generics.UpdateAPIView):
     queryset = Publicacion.objects.all()
@@ -42,9 +43,10 @@ class PublicacionUpdateView(generics.UpdateAPIView):
     def perform_update(self, serializer):
         publicacion = self.get_object()
         if publicacion.estudiante != self.request.user:
-            raise AuthenticationFailed("No puedes editar publicaciones de otro usuario")
+            raise PermissionDenied(
+                {"publicacion": ["No puedes editar publicaciones de otro usuario."]}
+            )
         serializer.save()
-
 
 class PublicacionDeleteView(generics.DestroyAPIView):
     queryset = Publicacion.objects.all()
@@ -53,18 +55,10 @@ class PublicacionDeleteView(generics.DestroyAPIView):
 
     def perform_destroy(self, instance):
         if instance.estudiante != self.request.user:
-            raise AuthenticationFailed("No puedes eliminar publicaciones de otro usuario")
+            raise PermissionDenied(
+                {"publicacion": ["No puedes eliminar publicaciones de otro usuario."]}
+            )
         instance.delete()
-
-
-class MisPublicacionesView(generics.ListAPIView):
-    serializer_class = PublicacionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Publicacion.objects.filter(estudiante=self.request.user)
-
-
 
 # ----------- CHAT Y MENSAJES -----------
 
@@ -78,7 +72,6 @@ def crear_notificacion(usuario, tipo, mensaje, chat=None, publicacion=None, cali
         calificacion=calificacion
     )
 
-
 class ChatListCreateView(generics.ListCreateAPIView):
     queryset = Chat.objects.all().order_by('-fecha_inicio')
     serializer_class = ChatSerializer
@@ -89,19 +82,29 @@ class ChatListCreateView(generics.ListCreateAPIView):
         receptor = request.user
         publicacion_id = request.data.get('publicacion')
         if not publicacion_id:
-            return Response({'detail': 'publicacion es requerida.'}, status=400)
+            raise serializers.ValidationError(
+                {"publicacion": ["Este campo es requerido."]}
+            )
 
         publicacion = get_object_or_404(Publicacion, pk=publicacion_id)
         autor = publicacion.estudiante
 
         if autor == receptor:
-            return Response({'detail': 'No puedes iniciar un chat contigo mismo.'}, status=400)
+            raise serializers.ValidationError(
+                {"publicacion": ["No puedes iniciar un chat contigo mismo."]}
+            )
 
         chat = Chat.objects.create(publicacion=publicacion)
         ChatParticipante.objects.get_or_create(chat=chat, estudiante=autor, defaults={'rol': 'autor'})
         ChatParticipante.objects.get_or_create(chat=chat, estudiante=receptor, defaults={'rol': 'receptor'})
 
-        crear_notificacion(autor, 'nuevo_chat', f'Nuevo chat sobre tu publicación {publicacion_id}', chat, publicacion)
+        crear_notificacion(
+            autor,
+            'nuevo_chat',
+            f'Nuevo chat sobre tu publicación {publicacion_id}',
+            chat,
+            publicacion
+        )
         return Response(ChatSerializer(chat).data, status=201)
 
 
@@ -113,7 +116,7 @@ class ChatDetailView(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         chat = self.get_object()
         if not ChatParticipante.objects.filter(chat=chat, estudiante=request.user).exists():
-            return Response({'detail': 'No autorizado.'}, status=403)
+            return Response({'detalle': 'No autorizado.'}, status=403)
         return Response(ChatSerializer(chat).data, status=200)
 
 
@@ -127,9 +130,13 @@ class CompletarIntercambioView(generics.UpdateAPIView):
         estudiante = request.user
         chat = self.get_object()
 
-        es_autor = ChatParticipante.objects.filter(chat=chat, estudiante=estudiante, rol='autor').exists()
+        es_autor = ChatParticipante.objects.filter(
+            chat=chat, estudiante=estudiante, rol='autor'
+        ).exists()
         if not es_autor:
-            return Response({'detail': 'Solo el autor puede completar el intercambio.'}, status=403)
+            raise PermissionDenied(
+                {"chat": ["Solo el autor puede completar el intercambio."]}
+            )
 
         chat.estado_intercambio = True
         chat.save()
@@ -147,7 +154,7 @@ class CompletarIntercambioView(generics.UpdateAPIView):
 
 
 
-# MENSAJES
+# -----------------------MENSAJES -----------------------
 
 class MensajeListCreateView(generics.ListCreateAPIView):
     queryset = Mensaje.objects.all().order_by('fecha')
@@ -159,26 +166,37 @@ class MensajeListCreateView(generics.ListCreateAPIView):
         remitente = request.user
         chat_id = request.data.get('chat')
         if not chat_id:
-            return Response({'detail': 'chat es requerido.'}, status=400)
+            raise serializers.ValidationError(
+                {"chat": ["Este campo es requerido."]}
+            )
 
         chat = get_object_or_404(Chat, pk=chat_id)
         if not ChatParticipante.objects.filter(chat=chat, estudiante=remitente).exists():
-            return Response({'detail': 'No eres participante de este chat.'}, status=403)
+            raise PermissionDenied(
+                {"chat": ["No eres participante de este chat."]}
+            )
 
         texto = request.data.get('texto')
         if not texto:
-            return Response({'detail': 'texto es requerido.'}, status=400)
+            raise serializers.ValidationError(
+                {"texto": ["Este campo es requerido."]}
+            )
 
         mensaje = Mensaje.objects.create(chat=chat, estudiante=remitente, texto=texto)
 
         for otro in ChatParticipante.objects.filter(chat=chat).exclude(estudiante=remitente):
-            crear_notificacion(otro.estudiante, 'nuevo_mensaje', f'Nuevo mensaje en el chat {chat.id_chat}', chat)
+            crear_notificacion(
+                otro.estudiante,
+                'nuevo_mensaje',
+                f'Nuevo mensaje en el chat {chat.id_chat}',
+                chat
+            )
 
         return Response(MensajeSerializer(mensaje).data, status=201)
 
 
 
-# CALIFICACIONES DE CHAT
+# ----------------------- CALIFICACIONES DE CHAT -----------------------
 
 class CalificacionChatCreateView(generics.CreateAPIView):
     queryset = CalificacionChat.objects.all()
@@ -190,28 +208,44 @@ class CalificacionChatCreateView(generics.CreateAPIView):
         evaluador = request.user
         chat_id = request.data.get('chat')
         if not chat_id:
-            return Response({'detail': 'chat es requerido.'}, status=400)
+            raise serializers.ValidationError(
+                {"chat": ["Este campo es requerido."]}
+            )
 
         chat = get_object_or_404(Chat, pk=chat_id)
         if not ChatParticipante.objects.filter(chat=chat, estudiante=evaluador).exists():
-            return Response({'detail': 'No eres participante de este chat.'}, status=403)
+            raise PermissionDenied(
+                {"chat": ["No eres participante de este chat."]}
+            )
 
         if CalificacionChat.objects.filter(chat=chat, evaluador=evaluador).exists():
-            return Response({'detail': 'Ya has calificado este chat.'}, status=400)
+            raise serializers.ValidationError(
+                {"chat": ["Ya has calificado este chat."]}
+            )
 
         puntaje = request.data.get('puntaje')
         comentario = request.data.get('comentario', '')
 
-        calificacion = CalificacionChat.objects.create(chat=chat, evaluador=evaluador, puntaje=puntaje, comentario=comentario)
+        calificacion = CalificacionChat.objects.create(
+            chat=chat,
+            evaluador=evaluador,
+            puntaje=puntaje,
+            comentario=comentario
+        )
 
         for otro in ChatParticipante.objects.filter(chat=chat).exclude(estudiante=evaluador):
-            crear_notificacion(otro.estudiante, 'calificacion_chat', f'El usuario {evaluador.pk} calificó el chat {chat.pk}.', chat)
+            crear_notificacion(
+                otro.estudiante,
+                'calificacion_chat',
+                f'El usuario {evaluador.pk} calificó el chat {chat.pk}.',
+                chat
+            )
 
         return Response(CalificacionChatSerializer(calificacion).data, status=201)
 
 
 
-# NOTIFICACIONES
+# ----------------------- NOTIFICACIONES -----------------------
 
 class NotificacionListView(generics.ListAPIView):
     serializer_class = NotificacionSerializer
@@ -237,12 +271,24 @@ class MarcarTodasNotificacionesLeidasView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        Notificacion.objects.filter(estudiante=request.user, leida=False).update(leida=True)
-        return Response({'detail': 'Todas las notificaciones marcadas como leídas.'}, status=200)
+        actualizadas = Notificacion.objects.filter(
+            estudiante=request.user, leida=False
+        ).update(leida=True)
+
+        if actualizadas == 0:
+            # Usamos el formato estándar DRF para errores globales
+            raise serializers.ValidationError(
+                {"non_field_errors": ["No había notificaciones pendientes por leer."]}
+            )
+
+        return Response(
+            {"detalle": f"{actualizadas} notificaciones marcadas como leídas."},
+            status=200
+        )
 
 
+# ----------------------- PERFIL -----------------------
 
-# ----------- PERFIL Y NOTIFICACIONES -----------
 User = get_user_model()
 
 class CrearPerfilView(generics.CreateAPIView):
@@ -251,8 +297,12 @@ class CrearPerfilView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         if Perfil.objects.filter(estudiante=self.request.user).exists():
-            raise ValidationError({"detalle": "El perfil ya existe"})
+            # Usamos non_field_errors porque no es un campo específico
+            raise ValidationError(
+                {"non_field_errors": ["El perfil ya existe."]}
+            )
         serializer.save(estudiante=self.request.user)
+
 
 class PerfilDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = PerfilCompletoSerializer
@@ -262,15 +312,31 @@ class PerfilDetailView(generics.RetrieveUpdateAPIView):
         perfil, _ = Perfil.objects.get_or_create(estudiante=self.request.user)
         return perfil
 
+
 class EliminarMiCuenta(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request):
         user = request.user
-        user.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        password = request.data.get("password")
 
-# ----------- REPORTES Y MODERACIÓN -----------
+        if not password:
+            raise serializers.ValidationError(
+                {"password": ["Debes ingresar tu contraseña para confirmar."]}
+            )
+
+        if not user.check_password(password):
+            raise serializers.ValidationError(
+                {"password": ["La contraseña es incorrecta."]}
+            )
+
+        user.delete()
+        return Response(
+            {"detalle": "Tu cuenta ha sido eliminada correctamente."},
+            status=status.HTTP_200_OK
+        )
+
+# ----------------------- REPORTES Y MODERACIÓN -----------------------
 
 class CrearReporteView(generics.CreateAPIView):
     serializer_class = ReporteSerializer
