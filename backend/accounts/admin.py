@@ -5,4 +5,9 @@ from django.contrib import admin
 #Superusuario
     #Username: admin
     #Email: minyoonkook13@gmail.com
-    #Password: SIHU2020
+    #Password: SIHU2025
+
+#Usuario Estudiante
+  #{"email": "estudiante@inacapmail.cl",
+  #"password": "Champurriado3000",
+  #"acepta_politicas": true}
