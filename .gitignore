@@ -1,0 +1,17 @@
+# Python venv
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Node modules
+node_modules/
+
+# Env files
+.env
+*.env
+
+# Expo cache
+.expo/
+.expo-shared/
