@@ -1,0 +1,21 @@
+# Python venv
+venv/
+backend/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Django DB (si la compartirán, comenten esta línea)
+#db.sqlite3
+
+# Node modules
+node_modules/
+
+# Builds / dist
+build/
+dist/
+
+# Env files
+.env
+*.env
