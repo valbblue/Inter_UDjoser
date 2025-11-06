@@ -56,8 +56,8 @@ DJOSER = {
     "SEND_CONFIRMATION_EMAIL": False,
 
     # Puedes dejar estos en True si quieres probar reset de contraseña
-    "PASSWORD_CHANGED_EMAIL_CONFIRMATION": False,
-    "PASSWORD_RESET_CONFIRMATION": False,
+    "PASSWORD_CHANGED_EMAIL_CONFIRMATION": True,
+    "PASSWORD_RESET_CONFIRMATION": True,
 
     "ACTIVATION_URL": "activate/{uid}/{token}",  # no se usará en pruebas
     "PASSWORD_RESET_CONFIRM_URL": "reset-password-confirm/{uid}/{token}",
@@ -99,7 +99,7 @@ CORS_ALLOW_CREDENTIALS = True
 # Application definition
 
 INSTALLED_APPS = [
-    'channels',
+    #'channels', es moementaneo ya que no se usa
     'corsheaders',
     'core',
     'accounts',  ###

@@ -1,4 +1,4 @@
-from django.contrib.auth.models import BaseUserManager, AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.core.exceptions import ValidationError
 
@@ -23,7 +23,6 @@ class CustomUserManager(BaseUserManager):  #Superusuario Personalizado
             raise ValueError("Superuser debe tener is_superuser=True.")
 
         return self.create_user(email, password, **extra_fields)
-
 
 class User(AbstractUser): #Usuario Estudiante o Admin Interu
     email = models.EmailField(unique=True)
