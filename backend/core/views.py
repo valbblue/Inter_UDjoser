@@ -6,6 +6,7 @@ from django.db import transaction
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 
+
 from .models import (
     ChatParticipante, Publicacion, CalificacionChat,
     Mensaje, Reporte, Perfil, Notificacion, Chat
@@ -15,7 +16,32 @@ from .serializers import (
     PublicacionSerializer, ChatSerializer, MensajeSerializer,
     NotificacionSerializer, ReporteSerializer, CalificacionChatSerializer
 )
-
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework import status
+import requests
+@api_view(['POST'])
+@permission_classes([])
+def test_reset_flow(request):
+    """
+    Endpoint para probar el flujo completo de reseteo
+    """
+    email = request.data.get('email')
+    
+    # Paso 1: Solicitar reset
+    try:
+        response = requests.post(
+            'http://127.0.0.1:8000/api/auth/users/reset_password/',
+            json={'email': email},
+            headers={'Content-Type': 'application/json'}
+        )
+        return Response({
+            "step": "request_reset",
+            "status": response.status_code,
+            "data": response.json() if response.status_code == 204 else response.text
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 # ----------- PUBLICACIONES VIEWS  -----------
 
 class MisPublicacionesView(generics.ListAPIView):
